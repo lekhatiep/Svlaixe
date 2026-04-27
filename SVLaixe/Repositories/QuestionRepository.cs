@@ -1,6 +1,8 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
+using SVLaixe.Enums;
 using SVLaixe.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SVLaixe.Repositories
 {
@@ -24,7 +26,7 @@ namespace SVLaixe.Repositories
 
         async Task<List<Category>> IQuestionRepository.GetCategoriesAsync()
         {
-            var connectionString =  GetConnectionString();
+            var connectionString = GetConnectionString();
 
             using (var connection = new SqlConnection(connectionString))
             {
@@ -34,15 +36,31 @@ namespace SVLaixe.Repositories
         }
 
 
-        async Task<List<Question>> IQuestionRepository.GetQuestionsByCategoryIdAsync(int categoryId)
+        public async Task<List<QuestionAnswerDto>> GetQuestionsByCategoryIdAsync(int categoryId)
         {
             var connectionString = GetConnectionString();
+            var questionAnswerList = new List<QuestionAnswerDto>();
             using (var connection = new SqlConnection(connectionString))
             {
-                var questions = await connection.QueryAsync<Question>(
-                    "SELECT Id, CategoryId, Text FROM Questions WHERE CategoryId = @CategoryId",
-                    new { CategoryId = categoryId });
-                return questions.ToList();
+                var questions = await connection.QueryAsync<Question>("SELECT * FROM Questions q INNER JOIN Chapter ch ON ch.ChapterID = Q.ChapterID WHERE ch.CatID = @Category", new { Category = categoryId });
+                foreach (var question in questions)
+                {
+                    var answers = await connection.QueryAsync<Answer>(
+                        "SELECT Id, QuestionId, Content, IsCorrect, NumberAnswer FROM Answers WHERE QuestionId = @QuestionNumber",
+                        new { QuestionNumber = question.QuestionNumber });
+                    var questionAnswerDto = new QuestionAnswerDto
+                    {
+                        Id = question.Id,
+                        QuestionNumber = question.QuestionNumber,
+                        Content = question.Content,
+                        Answers = answers.ToList(),
+                        ChapterId = question.ChapterId,
+                        IsCritical = question.IsCritical,
+                        Explanation = question.Explanation,
+                    };
+                    questionAnswerList.Add(questionAnswerDto);
+                }
+                return questionAnswerList;
             }
         }
 
@@ -124,13 +142,12 @@ namespace SVLaixe.Repositories
             }
         }
 
-
         public async Task<bool> IsCorrectAnswerByQuestionId(int questionId, int numberAnswer)
         {
             var connectionString = GetConnectionString();
             using (var connection = new SqlConnection(connectionString))
             {
-                var isCorrect =  await connection.QueryFirstOrDefaultAsync<bool>(
+                var isCorrect = await connection.QueryFirstOrDefaultAsync<bool>(
                     "SELECT IsCorrect FROM Answers WHERE QuestionId = @QuestionId AND NumberAnswer = @NumberAnswer",
                     new { QuestionId = questionId, NumberAnswer = numberAnswer });
                 return isCorrect;
@@ -139,12 +156,12 @@ namespace SVLaixe.Repositories
 
         public async Task<List<QuestionAnswerDto>> GetQuestionAnswerByChapterIdAsync(int ChapterId)
         {
-            var catID = 1;
             var connectionString = GetConnectionString();
             var questionAnswerList = new List<QuestionAnswerDto>();
             using (var connection = new SqlConnection(connectionString))
             {
                 var questions = await connection.QueryAsync<Question>("SELECT Id, QuestionNumber, Content FROM Questions WHERE ChapterId = @ChapterId", new { ChapterId = ChapterId });
+
                 foreach (var question in questions)
                 {
                     var answers = await connection.QueryAsync<Answer>(
@@ -161,6 +178,164 @@ namespace SVLaixe.Repositories
                 }
                 return questionAnswerList;
             }
+        }
+
+        public async Task<List<QuestionAnswerDto>> GetRandomExampleQuestionB()
+        {
+            var connectionString = GetConnectionString();
+            var questionAnswerList = new List<QuestionAnswerDto>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                var questions = await connection.QueryAsync<Question>("[dbo].[GetRandomExamQuestion_CatB]", commandType: System.Data.CommandType.StoredProcedure);
+                foreach (var question in questions)
+                {
+                    var answers = await connection.QueryAsync<Answer>(
+                        "SELECT Id, QuestionId, Content, NumberAnswer FROM Answers WHERE QuestionId = @QuestionId",
+                        new { QuestionId = question.Id });
+                    var questionAnswerDto = new QuestionAnswerDto
+                    {
+                        Id = question.Id,
+                        QuestionNumber = question.QuestionNumber,
+                        Content = question.Content,
+                        Answers = answers.ToList()
+                    };
+                    questionAnswerList.Add(questionAnswerDto);
+                }
+                return questionAnswerList;
+            }
+        }
+
+        public async Task AddExplainFollowQuestionIdFromJsonFile()
+        {
+            var fileJson = Directory.GetCurrentDirectory() + @"/wwwroot/Data/600_cau_explain.json";
+            if (!File.Exists(fileJson))
+            {
+                throw new FileNotFoundException("The explanations.json file was not found.");
+            }
+            var jsonData = File.ReadAllText(fileJson);
+            var questions = System.Text.Json.JsonSerializer.Deserialize<List<QuestionExplainDto>>(jsonData);
+            if (questions == null || questions.Count == 0)
+            {
+                throw new Exception("No questions found in the JSON file.");
+            }
+
+            var connectionString = GetConnectionString();
+
+            foreach (var questionDto in questions)
+            {
+                var questionId = questionDto.number;
+                var explanation = questionDto.explanation;
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.ExecuteAsync(
+                        "UPDATE Questions SET Explanation = @Explanation WHERE QuestionNumber = @QuestionNumber",
+                        new { Explanation = explanation, QuestionNumber = questionId });
+                }
+
+            }
+        }
+
+        public async Task<ResultExamDto> CalculateExamResultAsync(List<int> questionIds, List<int> selectedAnswerIds)
+        {
+            var connectionString = GetConnectionString();
+            int totalQuestions = questionIds.Count;
+            int correctAnswers = 0;
+            List<int> wrongQuestionIds = new List<int>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    for (int i = 0; i <= questionIds.Count; i++)
+                    {
+                        int questionId = questionIds[i];
+                        int selectedAnswerId = selectedAnswerIds[i];
+                        var isCorrect = await connection.QueryFirstOrDefaultAsync<bool>(
+                            "SELECT IsCorrect FROM Answers WHERE Id = @AnswerId AND QuestionId = @QuestionId",
+                            new { AnswerId = selectedAnswerId, QuestionId = questionId });
+                        if (isCorrect)
+                        {
+                            correctAnswers++;
+                        }
+                        else
+                        {
+                            wrongQuestionIds.Add(questionId);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+
+            int score = (int)((double)correctAnswers / totalQuestions * 100);
+            bool isPassed = score >= EnumsCarB.scorePass;
+
+            return new ResultExamDto
+            {
+                Score = score,
+                IsPassed = isPassed,
+                WrongQuestionIds = wrongQuestionIds,
+                ExamDate = DateTime.Now
+            };
+        }
+
+        public async Task<ResultExamDto> CalculateExamResultAsync(ExamSubmissionDto submissionDto)
+        {
+            var connectionString = GetConnectionString();
+            int totalQuestions = submissionDto.QuestionIds.Count;
+            int correctAnswers = 0;
+            List<int> wrongQuestionIds = new List<int>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    for (int i = 0; i < submissionDto.QuestionIds.Count; i++)
+                    {
+                        int questionId = submissionDto.QuestionIds[i];
+                   
+                        if (!submissionDto.Answers.TryGetValue(questionId, out int selectedAnswerId))
+                        {
+                            wrongQuestionIds.Add(questionId);
+                            continue;
+                        }
+
+                        var isCorrect = await connection.QueryFirstOrDefaultAsync<bool>(
+                            "SELECT IsCorrect FROM Answers WHERE Id = @AnswerId AND QuestionId = @QuestionId",
+                            new { AnswerId = selectedAnswerId, QuestionId = questionId });
+                        if (isCorrect)
+                        {
+                            correctAnswers++;
+                        }
+                        else
+                        {
+                            wrongQuestionIds.Add(questionId);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+
+            int score = (int)((double)correctAnswers / totalQuestions * 100);
+            bool isPassed = score >= EnumsCarB.scorePass;
+            var duration = submissionDto.EndTime - submissionDto.StartTime;
+
+            return new ResultExamDto
+            {
+                Id = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Score = correctAnswers,
+                IsPassed = isPassed,
+                WrongQuestionIds = wrongQuestionIds,
+                QuestionIds = submissionDto.QuestionIds,
+                CorrectQuestionIds = submissionDto.QuestionIds.Except(wrongQuestionIds).ToList(),
+                ExamDate = DateTime.Now,
+                DurationSeconds = (int)duration.TotalSeconds
+            };
         }
     }
 }
