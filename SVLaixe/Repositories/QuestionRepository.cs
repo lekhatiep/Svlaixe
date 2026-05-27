@@ -190,6 +190,62 @@ namespace SVLaixe.Repositories
                 foreach (var question in questions)
                 {
                     var answers = await connection.QueryAsync<Answer>(
+                        "SELECT Id, QuestionId, Content, IsCorrect, NumberAnswer FROM Answers WHERE QuestionId = @QuestionId",
+                        new { QuestionId = question.Id });
+                    var questionAnswerDto = new QuestionAnswerDto
+                    {
+                        Id = question.Id,
+                        QuestionNumber = question.QuestionNumber,
+                        Content = question.Content,
+                        Answers = answers.ToList()
+                    };
+                    questionAnswerList.Add(questionAnswerDto);
+                }
+                return questionAnswerList;
+            }
+        }
+
+        public async Task AddExplainFollowQuestionIdFromJsonFile()
+        {
+            var fileJson = Directory.GetCurrentDirectory() + @"/wwwroot/Data/600_cau_explain.json";
+            if (!File.Exists(fileJson))
+            {
+                throw new FileNotFoundException("The explanations.json file was not found.");
+            }
+            var jsonData = File.ReadAllText(fileJson);
+            var questions = System.Text.Json.JsonSerializer.Deserialize<List<QuestionExplainDto>>(jsonData);
+            if (questions == null || questions.Count == 0)
+            {
+                throw new Exception("No questions found in the JSON file.");
+            }
+
+            var connectionString = GetConnectionString();
+
+            foreach (var questionDto in questions)
+            {
+                var questionId = questionDto.number;
+                var explanation = questionDto.explanation;
+             
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.ExecuteAsync(
+                        "UPDATE Questions SET Explanation = @Explanation WHERE QuestionNumber = @QuestionNumber",
+                        new { Explanation = explanation, QuestionNumber = questionId });
+                }
+
+            }
+        }
+
+        public async Task<List<QuestionAnswerDto>> GetRandomExampleQuestionB()
+        {
+            var connectionString = GetConnectionString();
+            var questionAnswerList = new List<QuestionAnswerDto>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                var questions = await connection.QueryAsync<Question>("[dbo].[GetRandomExamQuestion_CatB]", commandType: System.Data.CommandType.StoredProcedure);
+                foreach (var question in questions)
+                {
+                    var answers = await connection.QueryAsync<Answer>(
                         "SELECT Id, QuestionId, Content, NumberAnswer FROM Answers WHERE QuestionId = @QuestionId",
                         new { QuestionId = question.Id });
                     var questionAnswerDto = new QuestionAnswerDto

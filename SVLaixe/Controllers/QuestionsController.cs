@@ -118,6 +118,28 @@ namespace SVLaixe.Controllers
                 return BadRequest($"An error occurred: {ex.Message}");
             }
         }
+        [HttpPost("AddExplainFollowQuestionIdFromJsonFile")]
+        public async Task<IActionResult> AddExplainFollowQuestionIdFromJsonFile(string password)
+        {
+            try
+            {
+                if (password != "123456A@")
+                {
+                    return Unauthorized("Invalid password.");
+                }
+                else
+                {
+                    await _questionRepository.AddExplainFollowQuestionIdFromJsonFile();
+                    return Ok("Explanations added successfully from JSON file.");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+
 
 
         [HttpGet("IsCorrectAnswerByQuestionId")]
@@ -141,6 +163,34 @@ namespace SVLaixe.Controllers
             try
             {
                 var questionAnswers = await _questionRepository.GetQuestionAnswerByChapterIdAsync(chapterID);
+                return Ok(questionAnswers);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpGet("GetRandomExampleQuestionB")]
+        public async Task<IActionResult> GetRandomExampleQuestionB()
+        {
+            try
+            {
+                var questionAnswers = await _questionRepository.GetRandomExampleQuestionB();
+                return Ok(questionAnswers);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpGet("GetQuestionsByCategoryId")]
+        public async Task<IActionResult> GetQuestionsByCategoryId(int categoryId)
+        {
+            try
+            {
+                var questionAnswers = await _questionRepository.GetQuestionsByCategoryIdAsync(categoryId);
                 return Ok(questionAnswers);
             }
             catch (Exception ex)
