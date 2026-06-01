@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using SVLaixe.Models;
 using SVLaixe.Repositories;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -55,12 +56,20 @@ namespace SVLaixe.Controllers
         }
 
         [HttpPost("AddQuestionFromJsonFile")]
-        public async Task<IActionResult> AddQuestionFromJsonFile()
+        public async Task<IActionResult> AddQuestionFromJsonFile(string password)
         {
             try
             {
-                await _questionRepository.AddQuestionFromJsonFile();
-                return Ok("Questions added successfully from JSON file.");
+                if (password != "123456A@")
+                {
+                    return Unauthorized("Invalid password.");
+                }
+                else
+                {
+                    await _questionRepository.AddQuestionFromJsonFile();
+                    return Ok("Questions added successfully from JSON file.");
+                }
+
             }
             catch (Exception ex)
             {
@@ -69,18 +78,48 @@ namespace SVLaixe.Controllers
         }
 
         [HttpPost("AddAnswerFollowQuestionIdFromJsonFile")]
-        public async Task<IActionResult> AddAnswerFollowQuestionIdFromJsonFile()
+        public async Task<IActionResult> AddAnswerFollowQuestionIdFromJsonFile(string password)
         {
             try
             {
-                await _questionRepository.AddAnswerFollowQuestionIdFromJsonFile();
-                return Ok("Answers added successfully from JSON file.");
+                if (password != "123456A@")
+                {
+                    return Unauthorized("Invalid password.");
+                }
+                else {
+                    await _questionRepository.AddAnswerFollowQuestionIdFromJsonFile();
+                    return Ok("Answers added successfully from JSON file.");
+                }
+
             }
             catch (Exception ex)
             {
                 return BadRequest($"An error occurred: {ex.Message}");
             }
         }
+        [HttpPost("AddExplainFollowQuestionIdFromJsonFile")]
+        public async Task<IActionResult> AddExplainFollowQuestionIdFromJsonFile(string password)
+        {
+            try
+            {
+                if (password != "123456A@")
+                {
+                    return Unauthorized("Invalid password.");
+                }
+                else
+                {
+                    await _questionRepository.AddExplainFollowQuestionIdFromJsonFile();
+                    return Ok("Explanations added successfully from JSON file.");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+        
+
 
         [HttpGet("IsCorrectAnswerByQuestionId")]
         public async Task<IActionResult> IsCorrectAnswerByQuestionId(int questionId, int numberAnswer)
@@ -98,12 +137,54 @@ namespace SVLaixe.Controllers
             }
         }
         [HttpGet("GetQuestionAnswerByChapter")]
-        public async Task<IActionResult> GetQuestionAnswerByCategoryId(int chapterID)
+        public async Task<IActionResult> GetQuestionAnswerByChapterID(int chapterID)
         {
             try
             {
                 var questionAnswers = await _questionRepository.GetQuestionAnswerByChapterIdAsync(chapterID);
                 return Ok(questionAnswers);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpGet("GetRandomExampleQuestionB")]
+        public async Task<IActionResult> GetRandomExampleQuestionB(int multiplier = 1)
+        {
+            try
+            {
+                var questionAnswers = await _questionRepository.GetRandomExampleQuestionB(multiplier);
+                return Ok(questionAnswers);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpGet("GetQuestionsByCategoryId")]
+        public async Task<IActionResult> GetQuestionsByCategoryId(int categoryId)
+        {
+            try
+            {
+                var questionAnswers = await _questionRepository.GetQuestionsByCategoryIdAsync(categoryId);
+                return Ok(questionAnswers);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpPost("SubmitExam")]
+        public async Task<IActionResult> SubmitExam([FromBody] ExamSubmissionDto examSubmission)
+        {
+            try
+            {
+                var result = await _questionRepository.CalculateExamResultAsync(examSubmission);
+                return Ok(result);
             }
             catch (Exception ex)
             {
