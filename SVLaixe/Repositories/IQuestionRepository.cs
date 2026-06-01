@@ -14,7 +14,7 @@ namespace SVLaixe.Repositories
 
         Task<bool> IsCorrectAnswerByQuestionId(int questionId, int numberAnswer);
         Task<List<QuestionAnswerDto>> GetQuestionAnswerByChapterIdAsync(int chapterID);
-        Task<List<QuestionAnswerDto>> GetRandomExampleQuestionB();
+        Task<List<QuestionAnswerDto>> GetRandomExampleQuestionB(int multiplier = 1);
         Task<ResultExamDto> CalculateExamResultAsync(ExamSubmissionDto submissionDto);
     }
 }

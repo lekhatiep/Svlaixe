@@ -180,13 +180,14 @@ namespace SVLaixe.Repositories
             }
         }
 
-        public async Task<List<QuestionAnswerDto>> GetRandomExampleQuestionB()
+        public async Task<List<QuestionAnswerDto>> GetRandomExampleQuestionB(int multiplier = 1)
         {
             var connectionString = GetConnectionString();
             var questionAnswerList = new List<QuestionAnswerDto>();
             using (var connection = new SqlConnection(connectionString))
             {
-                var questions = await connection.QueryAsync<Question>("[dbo].[GetRandomExamQuestion_CatB]", commandType: System.Data.CommandType.StoredProcedure);
+                var values = new { Multiplier = multiplier };
+                var questions = await connection.QueryAsync<Question>("[dbo].[GetRandomExamQuestion_CatB]", values, commandType: System.Data.CommandType.StoredProcedure);
                 foreach (var question in questions)
                 {
                     var answers = await connection.QueryAsync<Answer>(
@@ -258,37 +259,6 @@ namespace SVLaixe.Repositories
                     questionAnswerList.Add(questionAnswerDto);
                 }
                 return questionAnswerList;
-            }
-        }
-
-        public async Task AddExplainFollowQuestionIdFromJsonFile()
-        {
-            var fileJson = Directory.GetCurrentDirectory() + @"/wwwroot/Data/600_cau_explain.json";
-            if (!File.Exists(fileJson))
-            {
-                throw new FileNotFoundException("The explanations.json file was not found.");
-            }
-            var jsonData = File.ReadAllText(fileJson);
-            var questions = System.Text.Json.JsonSerializer.Deserialize<List<QuestionExplainDto>>(jsonData);
-            if (questions == null || questions.Count == 0)
-            {
-                throw new Exception("No questions found in the JSON file.");
-            }
-
-            var connectionString = GetConnectionString();
-
-            foreach (var questionDto in questions)
-            {
-                var questionId = questionDto.number;
-                var explanation = questionDto.explanation;
-
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    await connection.ExecuteAsync(
-                        "UPDATE Questions SET Explanation = @Explanation WHERE QuestionNumber = @QuestionNumber",
-                        new { Explanation = explanation, QuestionNumber = questionId });
-                }
-
             }
         }
 
@@ -377,8 +347,9 @@ namespace SVLaixe.Repositories
                 throw;
             }
 
+            int tenPercent = (int)(totalQuestions * 0.1);
             int score = (int)((double)correctAnswers / totalQuestions * 100);
-            bool isPassed = score >= EnumsCarB.scorePass;
+            bool isPassed = score >= (totalQuestions - tenPercent);
             var duration = submissionDto.EndTime - submissionDto.StartTime;
 
             return new ResultExamDto
