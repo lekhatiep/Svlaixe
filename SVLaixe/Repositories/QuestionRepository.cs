@@ -361,7 +361,8 @@ namespace SVLaixe.Repositories
                 QuestionIds = submissionDto.QuestionIds,
                 CorrectQuestionIds = submissionDto.QuestionIds.Except(wrongQuestionIds).ToList(),
                 ExamDate = DateTime.Now,
-                DurationSeconds = (int)duration.TotalSeconds
+                DurationSeconds = (int)duration.TotalSeconds,
+                Answers = submissionDto.Answers
             };
         }
     }
