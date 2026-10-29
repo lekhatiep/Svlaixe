@@ -11,5 +11,6 @@
         public List<int> CorrectQuestionIds { get; set; } = new List<int>();
         public DateTime ExamDate { get; set; }
         public int DurationSeconds { get; set; }
+        public Dictionary<int, int> Answers { get; set; } = new Dictionary<int, int>();
     }
 }
